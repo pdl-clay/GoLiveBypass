@@ -5,6 +5,7 @@ import { ipcRenderer } from 'electron';
   activate: (proxy?: string) => ipcRenderer.invoke('activate', proxy),
   deactivate: () => ipcRenderer.invoke('deactivate'),
   getStatus: () => ipcRenderer.invoke('get-status'),
+  getProxy: () => ipcRenderer.invoke('get-proxy'),
   getPlatform: () => ipcRenderer.invoke('get-platform'),
   getStartup: () => ipcRenderer.invoke('get-startup'),
   setStartup: (enabled: boolean) => ipcRenderer.invoke('set-startup', enabled),

@@ -911,6 +911,26 @@ ipcMain.handle("set-startup", (_event, enabled: unknown) => {
   refreshTray().catch(() => {});
 });
 
+// A proxy salva fica no settings.json da pasta compartilhada do bypass
+// (a mesma que o standalone/golivebypass.js leem). Sem este handler a UI
+// nunca saberia que ha uma proxy configurada apos reiniciar o app.
+function settingsDir() {
+  return process.platform === "win32"
+    ? path.join(process.env.LOCALAPPDATA || app.getPath("appData"), "GoLiveBypass")
+    : path.join(app.getPath("home"), ".local", "share", "GoLiveBypass");
+}
+
+ipcMain.handle("get-proxy", () => {
+  try {
+    const file = path.join(settingsDir(), "settings.json");
+    if (!fs.existsSync(file)) return "";
+    const data = JSON.parse(fs.readFileSync(file, "utf8"));
+    return typeof data.proxy === "string" ? data.proxy : "";
+  } catch {
+    return "";
+  }
+});
+
 // A pagina reporta a altura de que precisa (o warning do bypass ativo faz o conteudo crescer).
 // A janela e fixa (resizable: false), entao o proprio app ajusta para caber tudo sem cortar.
 ipcMain.on('resize-window', (_event, height: unknown) => {

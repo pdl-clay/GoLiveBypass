@@ -7,6 +7,7 @@ declare global {
       activate: (proxy?: string) => Promise<void>;
       deactivate: () => Promise<void>;
       getStatus: () => Promise<string>;
+      getProxy: () => Promise<string>;
       getPlatform: () => Promise<string>;
       getStartup: () => Promise<boolean>;
       setStartup: (enabled: boolean) => Promise<void>;
@@ -202,11 +203,22 @@ applyPlatformCopy();
 initTheme();
 updateStatus();
 refreshStartup();
+refreshProxy();
 fitWindowToContent();
 
 async function refreshStartup() {
   try {
     startupToggle.checked = await window.api.getStartup();
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// Preenche o campo de proxy com o valor salvo no settings.json (se houver),
+// para a configuracao ficar visivel apos reiniciar o app.
+async function refreshProxy() {
+  try {
+    proxyInput.value = await window.api.getProxy();
   } catch (err) {
     console.error(err);
   }

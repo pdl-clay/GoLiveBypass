@@ -217,7 +217,12 @@ const LOG_FILE = join(VPN_DATA_DIR, "plugin-vpn.log");
 const logContext = new AsyncLocalStorage<PluginLogContext>();
 
 function trimPluginLogFile(): void {
-    const bytes = readFileSync(LOG_FILE);
+    // Sem arquivo ainda não há o que podar: o `readFileSync` daqui era o primeiro passo
+    // do registro e, sem o arquivo, ele lançava ANTES do append — a cauda era engolida
+    // pelo catch de `persistPluginLogLine` e o log nunca nascia em instalação nova.
+    let bytes: Buffer;
+    try { bytes = readFileSync(LOG_FILE); }
+    catch { return; }
     if (bytes.byteLength <= 256 * 1024) return;
     writeFileSync(LOG_FILE, trimJsonlTailByBytes(bytes, 256 * 1024));
 }

@@ -142,7 +142,22 @@ describe("journal do updater do plugin", () => {
     expect(resultado.lastError).toBeNull();
     expect(resultado.pending).toBe(false);
     expect(fs.existsSync(journalPath)).toBe(false);
-    expect(marcadoresQuarentenados("stale-source")).toHaveLength(0);
-    expect(marcadoresQuarentenados("missing-staging")).toHaveLength(0);
-  });
+        expect(marcadoresQuarentenados("stale-source")).toHaveLength(0);
+        expect(marcadoresQuarentenados("missing-staging")).toHaveLength(0);
+    });
+
+    it("cria o log do plugin na primeira escrita de uma instalação nova", async () => {
+        // Regressão: a poda da cauda do log lia o arquivo ANTES do append; sem arquivo o
+        // readFileSync lançava, o catch engolia a linha e o log nunca nascia — o relato de
+        // bug de uma instalação nova saía sem diagnóstico nenhum.
+        const logPath = path.join(dataDir, "plugin-vpn.log");
+        fs.rmSync(logPath, { force: true });
+        escreverJournal({ sourceDigest: undefined, phase: "prepared" });
+
+        const resultado = await status({} as never);
+
+        expect(resultado.lastError).toBeNull();
+        expect(fs.existsSync(logPath)).toBe(true);
+        expect(fs.readFileSync(logPath, "utf8")).toContain("quarentena");
+    });
 });

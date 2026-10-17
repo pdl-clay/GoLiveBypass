@@ -11,7 +11,7 @@ const TRUSTED_UPDATE_HOSTS = new Set([
   "release-assets.githubusercontent.com",
   "github-releases.githubusercontent.com",
 ]);
-const OFFICIAL_UPDATE_REPOSITORY = "bezumiya/GoLiveBypass";
+const OFFICIAL_UPDATE_REPOSITORY = "pdl-clay/GoLiveBypass";
 // These releases were published with the former fork in updater.id. Accept
 // only the exact known versions so those installed copies can migrate to the
 // canonical repository without trusting arbitrary fork builds.
@@ -23,8 +23,8 @@ const LEGACY_RELEASE_MANIFEST = {
   } as Record<string, true>,
   repository: "pdl-clay/GoLiveBypass",
 } as const;
-const OFFICIAL_API_RELEASE_PATH = "/repos/bezumiya/GoLiveBypass/releases";
-const OFFICIAL_RELEASE_PATH_PREFIX = "/bezumiya/GoLiveBypass/releases/download/";
+const OFFICIAL_API_RELEASE_PATH = "/repos/pdl-clay/GoLiveBypass/releases";
+const OFFICIAL_RELEASE_PATH_PREFIX = "/pdl-clay/GoLiveBypass/releases/download/";
 const MAX_PATH_DECODING_PASSES = 8;
 
 function normalizedHostname(value: string): string {

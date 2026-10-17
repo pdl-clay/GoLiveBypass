@@ -6,6 +6,30 @@ segue [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+### Plugin Vencord/Equicord: a conf WireGuard própria volta a carregar e a ativar (relatos beta)
+
+Três defeitos somados no modo **"Arquivo WireGuard personalizado"**:
+
+- a ativação reimportava a conf pela mesma fila serial que ela própria aguardava — a operação travava em "Preparando perfil e WireGuard" e a fila inteira ficava envenenada (restaurar/provedor nunca mais rodavam);
+- a cópia privada do usuário era gravada em `wireguard.conf`, o **mesmo arquivo** que a geração Proton escreve: depois de qualquer perfil Proton, o modo personalizado subia o túnel do servidor Proton apresentando-o como a conf do usuário;
+- o logout Proton apagava essa cópia quando o modo selecionado era Proton, e a ativação seguinte morria em "Arquivo WireGuard não encontrado.".
+
+A conf importada passou a ter arquivo próprio (`custom-wireguard.conf`, 0600), a importação interna não reentra na fila e o logout remove só os artefatos do perfil Proton. O layout antigo (conf apontando para o perfil Proton em uso, com o marcador da conta presente) é recusado com "Selecione o arquivo .conf novamente" em vez de subir o servidor errado, e o botão **"Testar .conf"** valida a conf configurada — nunca o perfil ativo do túnel. `AllowedIPs` escrito como as duas metades (`0.0.0.0/1` + `128.0.0.0/1`, usado por alguns provedores) passou a contar como rota padrão, e o erro de rota ausente diz qual rota falta.
+
+**Verificado:** 8 testes em `golive-gui/tests/plugin-custom-config.test.ts` mais a suíte da GUI, o harness real do plugin na VM Windows (`docs/testing/2026-10-17-plugin-conf-propria-e-updater-vm.md`) e o cliente real no Linux (conf Proton importada, ativação por polkit e Discord dentro do namespace).
+
+### Plugin: updater sai do journal preso em vez de falhar para sempre
+
+"digest da árvore preparada não confere com a fonte atual" e "update baixado não tem mais a fonte em staging" ficavam no marcador ativo: toda consulta seguinte do painel lançava o mesmo erro antes de baixar e nenhum caminho do updater limpava o journal. Agora esses marcadores vão para quarentena (`plugin-update-pending.json.stale-source-*` / `.missing-staging-*`), o backup órfão do update descartado sai junto e a nova preparação é liberada; a fase `preparing` continua sendo resolvida pela recuperação da abertura.
+
+**Verificado:** 4 testes em `golive-gui/tests/plugin-update-journal.test.ts` e o ciclo real de update no Discord Linux (2.0.10 → 2.0.13 baixado, validado por SHA-256, trocado e recompilado na abertura seguinte, sem journal preso).
+
+### Plugin: o log nasce na primeira escrita (instalação nova)
+
+A poda da cauda do log lia o arquivo **antes** do append; numa instalação nova o `readFileSync` lançava, o `catch` de `persistPluginLogLine` engolia a linha e o `plugin-vpn.log` nunca era criado — o relato de bug de quem nunca teve log saía sem diagnóstico. A poda agora ignora a ausência do arquivo.
+
+**Verificado:** teste novo em `golive-gui/tests/plugin-update-journal.test.ts` (falha sem a correção) e o log real do cliente no Linux.
+
 ### Interface: botão "Otimizar rota" vira só ícone em janela estreita
 
 Em janelas com até 640 px de largura o rótulo do botão tomava espaço do seletor de rota, justamente onde a linha é mais apertada (em 641 px o seletor ficava com 145 px). Abaixo desse ponto o botão vira um quadrado de 32 px só com o ícone — que já gira durante a medição — e `title` e `aria-label` continuam descrevendo a ação. O seletor ganha a largura de volta (191 px em 640 px). Na largura de abertura (720 px) nada muda.

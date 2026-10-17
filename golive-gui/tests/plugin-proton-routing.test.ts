@@ -686,8 +686,11 @@ describe("aplicação da rota escolhida", () => {
     helper.finish();
 
     await expect(selecao).resolves.toMatchObject({ success: true, server: "US#1" });
-    await expect(importacao).resolves.toMatchObject({ success: true, path: path.join(dir, "wireguard.conf") });
-    expect(fs.readFileSync(path.join(dir, "wireguard.conf"), "utf8")).toBe(customProfile);
+    await expect(importacao).resolves.toMatchObject({ success: true, path: path.join(dir, "custom-wireguard.conf") });
+    // A conf do usuário tem arquivo próprio: a seleção Proton não pode sobrescrevê-la,
+    // nem a importação pode trocar o perfil Proton que a seleção acabou de promover.
+    expect(fs.readFileSync(path.join(dir, "custom-wireguard.conf"), "utf8")).toBe(customProfile);
+    expect(fs.readFileSync(path.join(dir, "wireguard.conf"), "utf8")).toBe(PERFIL_NOVO);
   });
 
   it("prepara a rota sem ativar quando a VPN está inativa", async () => {

@@ -1653,9 +1653,21 @@ function releasePluginUpdateLock(lock: PluginUpdateLock | null | undefined): voi
     }
 }
 
-function quarantineLegacyPendingUpdate(pending: PendingPluginUpdate): void {
+/**
+ * Move o marcador do slot ativo para um nome de quarentena.
+ *
+ * Um journal que não descreve mais a árvore instalada (digest divergente, staging
+ * ausente, marcador legado sem digest) travava TODA consulta do painel com o mesmo erro
+ * e nenhum caminho do updater liberava o slot. A quarentena preserva o marcador para
+ * diagnóstico e libera a nova preparação.
+ */
+function quarantinePendingUpdate(
+    pending: PendingPluginUpdate,
+    reason: string,
+    options: { projectRoot?: string; removeBackup?: boolean } = {},
+): void {
     const source = pendingUpdatePath();
-    const prefix = `${PENDING_UPDATE_FILE}.legacy-${Date.now()}-${process.pid}`;
+    const prefix = `${PENDING_UPDATE_FILE}.${reason}-${Date.now()}-${process.pid}`;
     for (let attempt = 0; attempt < 8; attempt++) {
         const destination = join(VPN_DATA_DIR, `${prefix}-${attempt}.json`);
         if (existsSync(destination)) continue;
@@ -1663,20 +1675,28 @@ function quarantineLegacyPendingUpdate(pending: PendingPluginUpdate): void {
             // Preserve the old marker for diagnosis, but remove it from the
             // active slot atomically so a new preparation can proceed.
             renameSync(source, destination);
-            log("warn", "marcador legado do updater movido para quarentena; nova preparação liberada", {
-                versão: pending.version,
-                canal: pending.channel,
-                arquivo: basename(destination),
-            });
-            return;
         } catch (error) {
             // Another renderer call may have quarantined the marker first.
             if (!existsSync(source)) return;
             if (attempt === 7)
-                throw new Error(`não consegui mover o marcador legado para quarentena: ${safeDiagnosticDetail(error, 300)}`);
+                throw new Error(`não consegui mover o marcador do updater para quarentena: ${safeDiagnosticDetail(error, 300)}`);
+            continue;
         }
+        if (options.removeBackup && options.projectRoot) {
+            // O backup do update descartado não é restaurável por ninguém: sai junto para
+            // a pasta de backups não acumular árvore sem dono.
+            try { rmSync(safeBackupPath(options.projectRoot, pending.backupName), { recursive: true, force: true }); }
+            catch (error) { log("warn", "não consegui remover o backup do update descartado", { erro: error }); }
+        }
+        log("warn", "marcador do updater movido para quarentena; nova preparação liberada", {
+            versão: pending.version,
+            canal: pending.channel,
+            motivo: reason,
+            arquivo: basename(destination),
+        });
+        return;
     }
-    throw new Error("não consegui reservar um nome seguro para quarentenar o marcador legado");
+    throw new Error("não consegui reservar um nome seguro para quarentenar o marcador do updater");
 }
 
 function policyFrom(value: unknown, fallback = pluginUpdatePolicy): PluginUpdatePolicy {
@@ -2232,11 +2252,16 @@ function inspectPendingUpdate(): PendingUpdateInspection {
         const staged = stagedPluginSourcePath(projectRoot, pending);
         const digest = pending.sourceDigest;
         if (!staged || typeof digest !== "string") {
-            return {
-                pending,
-                trusted: null,
-                error: "update baixado não tem mais a fonte em staging; uma nova consulta vai baixar de novo",
-            };
+            try {
+                quarantinePendingUpdate(pending, "missing-staging");
+                return { pending: null, trusted: null, error: null };
+            } catch (error) {
+                return {
+                    pending,
+                    trusted: null,
+                    error: `update baixado não tem mais a fonte em staging e não consegui liberar nova preparação: ${safeDiagnosticDetail(error, 300)}`,
+                };
+            }
         }
         return { pending, trusted: { ...pending, sourceDigest: digest }, error: null };
     }
@@ -2252,7 +2277,7 @@ function inspectPendingUpdate(): PendingUpdateInspection {
     const { sourceDigest } = pending;
     if (typeof sourceDigest !== "string") {
         try {
-            quarantineLegacyPendingUpdate(pending);
+            quarantinePendingUpdate(pending, "legacy");
             return { pending: null, trusted: null, error: null };
         } catch (error) {
             return {
@@ -2264,14 +2289,21 @@ function inspectPendingUpdate(): PendingUpdateInspection {
     }
 
     try {
-        const { target } = userpluginSource();
+        const { target, projectRoot } = userpluginSource();
         const actualDigest = hashPluginSourceTree(target);
         if (actualDigest !== sourceDigest) {
-            return {
-                pending,
-                trusted: null,
-                error: "digest da árvore preparada não confere com a fonte atual; nova preparação é necessária",
-            };
+            try {
+                // A árvore mudou por fora (outro instalador, outro checkout, edição manual):
+                // a preparação não é mais promovível e o backup dela não tem dono.
+                quarantinePendingUpdate(pending, "stale-source", { projectRoot, removeBackup: true });
+                return { pending: null, trusted: null, error: null };
+            } catch (error) {
+                return {
+                    pending,
+                    trusted: null,
+                    error: `digest da árvore preparada não confere com a fonte atual e não consegui liberar nova preparação: ${safeDiagnosticDetail(error, 300)}`,
+                };
+            }
         }
     } catch (error) {
         return {

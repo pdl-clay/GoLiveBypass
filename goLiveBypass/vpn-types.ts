@@ -228,8 +228,14 @@ export function validateWireGuardConfig(raw: string): WireGuardConfigValidation 
     if (!publicKey) return { valid: false, error: "A configuração não contém PublicKey." };
     if (!isValidWireGuardKey(publicKey)) return { valid: false, error: "PublicKey inválida: esperada uma chave WireGuard Base64 de 32 bytes." };
     const allowedIps = configValue(text, "peer", "AllowedIPs").split(",").map(value => value.trim());
-    if (!allowedIps.includes("0.0.0.0/0") && !allowedIps.includes("::/0"))
-        return { valid: false, error: "A configuração precisa anunciar uma rota padrão em AllowedIPs." };
+    // Alguns provedores (Proton, entre outros) anunciam a rota padrão como as duas
+    // metades 0.0.0.0/1 + 128.0.0.0/1 em vez de 0.0.0.0/0 — é a mesma rota.
+    const hasDefaultV4 = allowedIps.includes("0.0.0.0/0")
+        || (allowedIps.includes("0.0.0.0/1") && allowedIps.includes("128.0.0.0/1"));
+    const hasDefaultV6 = allowedIps.includes("::/0")
+        || (allowedIps.includes("::/1") && allowedIps.includes("8000::/1"));
+    if (!hasDefaultV4 && !hasDefaultV6)
+        return { valid: false, error: "A configuração precisa anunciar uma rota padrão em AllowedIPs: 0.0.0.0/0 (ou as metades 0.0.0.0/1 + 128.0.0.0/1) ou ::/0." };
     const endpoint = configValue(text, "peer", "Endpoint");
     const endpointMatch = /^(?:[^\s:[\]]+|\[[^\]]+\]):(\d{1,5})$/.exec(endpoint);
     if (!endpointMatch || Number(endpointMatch[1]) < 1 || Number(endpointMatch[1]) > 65535)

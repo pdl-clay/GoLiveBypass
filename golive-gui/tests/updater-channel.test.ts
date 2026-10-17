@@ -131,6 +131,10 @@ describe("wiring do canal no updater e no workflow", () => {
     const updater = fs.readFileSync(path.resolve(process.cwd(), "electron/updater.ts"), "utf8");
     expect(updater).toContain('const REPO = "pdl-clay/GoLiveBypass"');
     expect(updater).toContain('autoUpdater.allowPrerelease = canalAtual() === "beta"');
+    // Sem o channel explicito o Linux pedia latest-linux.yml dentro da release beta
+    // (404) e o canal beta nunca atualizava; o setter do channel liga allowDowngrade.
+    expect(updater).toContain('autoUpdater.channel = canalAtual() === "beta" ? "beta" : "latest"');
+    expect(updater).toContain("autoUpdater.allowDowngrade = false");
     expect(updater).toContain("autoUpdater.autoInstallOnAppQuit = false");
     expect(updater).toContain("escolherRelease(releases, app.getVersion(), canal)");
     expect(updater).toContain("CHECK_INTERVAL_MS = 60 * 60 * 1000");

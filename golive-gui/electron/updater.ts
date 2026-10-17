@@ -555,6 +555,15 @@ async function checkLinuxUpdate(
   if (linuxChecking || updateReady || !isAutoUpdateEnabled()) return;
   linuxChecking = true;
   try {
+    // O canal define o nome do arquivo de metadata: latest-linux.yml no estavel,
+    // beta-linux.yml no beta (e o que o workflow publica em cada canal). Sem esta
+    // linha o updater resolvia a release beta por causa do allowPrerelease e pedia
+    // latest-linux.yml dentro dela — 404 (ERR_UPDATER_CHANNEL_FILE_NOT_FOUND) e o
+    // canal beta nunca atualizava no Linux.
+    autoUpdater.channel = canalAtual() === "beta" ? "beta" : "latest";
+    // O setter de channel liga allowDowngrade sozinho; a regra do projeto e nunca
+    // aceitar versao menor que a atual (mesma garantia aplicada no updater do Windows).
+    autoUpdater.allowDowngrade = false;
     autoUpdater.allowPrerelease = canalAtual() === "beta";
     console.log(`[updater] verificando canal Linux (${reason})`);
     await autoUpdater.checkForUpdatesAndNotify();

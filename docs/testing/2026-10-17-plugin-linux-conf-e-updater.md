@@ -30,6 +30,8 @@ que é onde os relatos apontaram problema.
 | "Testar .conf" sem argumento | valida a conf **configurada**, não o perfil ativo: a primeira tentativa devolveu o erro da chave do arquivo escolhido, e não "nenhuma configuração encontrada" |
 | Ativação | `success:true state:"restart_pending"` — namespace `glb-28x3175d9c74f` e interface `glbwg28x3175d9c` criados numa única autorização; Discord relançado dentro do namespace |
 | Isolamento observado | processo principal do Discord em `net:[4026534053]` contra `net:[4026531833]` do host; `owner.lock` com o pid do processo em execução |
+| Túnel conectado (root, dentro do namespace) | `wg show`: `latest handshake: 14 seconds ago`, `transfer: 27.54 KiB received, 40.56 KiB sent`, peer `84.20.27.50:51820`, `allowed ips: 0.0.0.0/0, ::/0`; rota `default dev glbwg28x3175d9c` |
+| IP de saída | dentro do túnel `205.147.22.22` (Proton/MX) contra `200.222.95.x` do host — o tráfego do Discord sai pela VPN, não pela conexão local |
 | Fila depois da ativação | o painel seguiu respondendo `getVpnStatus`/`getPluginUpdateStatus` nas consultas seguintes; a fila serial destravada tem prova de teste (`plugin-custom-config.test.ts`: ativação, `restoreNetwork()` e `shutdown` na mesma fila) |
 
 ## Resultado — updater (fork `pdl-clay/GoLiveBypass`)
@@ -62,15 +64,18 @@ consulta falhava igual.
 1. Os releases deste ciclo foram publicados no **fork de teste** (`pdl-clay/GoLiveBypass`) a
    partir da branch `release/update-e2e-2.0.11`, que aponta upstream/owner/REPO para o fork;
    nada foi publicado em produção (`bezumiya/GoLiveBypass`).
-2. **Handshake e IP de saída não foram medidos.** `wg show` e uma sonda dentro do namespace
-   exigem root, e o namespace não tem caminho de volta para o host. Falta (uma linha, com a
-   senha do operador):
-   `sudo ip netns exec glb-28x3175d9c74f wg show && sudo ip netns exec glb-28x3175d9c74f curl -s --max-time 15 https://api.ipify.org`
+2. A prova do handshake e do IP de saída foi feita com `sudo ip netns exec … wg show` e um
+   `curl` dentro do namespace (root, executado pelo operador); o plugin em si não mede isso no
+   Linux — os números estão na tabela acima, não na interface.
 3. Os reinícios do Discord no ciclo de update foram `SIGKILL` + nova execução a partir do host
    (um encerramento normal restaura a rede, por desenho, e derrubaria o túnel em teste). Nessas
    condições o plugin classifica a sessão como `recovery_required` — namespace ativo com o
    processo atual fora dele — e **não** adota o túnel sem ação explícita: comportamento
-   observado, não defeito.
+   observado, não defeito. No fim do ciclo o namespace foi removido com a mesma sequência de
+   rollback do plugin (`ip link del`, `ip netns del`, `rm -rf /etc/netns/<ns>`), os registros
+   `owner.lock`/`active-route.json` foram apagados e a abertura seguinte do Discord confirmou
+   `VPN inactive | ativa false | ownership false`; a rede do host nunca foi alterada
+   (`default via 192.168.100.1 dev enp3s0`, `resolv.conf` do NetworkManager intactos).
 4. O `plugin-vpn.log` só começou a registrar quando o arquivo foi criado à mão: a instalação
    nova não criava o arquivo (defeito separado, corrigido em `fix(plugin): log nasce na
    primeira escrita`, ainda **fora** dos artefatos 2.0.13/2.0.14 publicados no fork).

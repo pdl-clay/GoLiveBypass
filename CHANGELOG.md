@@ -16,7 +16,7 @@ Três defeitos somados no modo **"Arquivo WireGuard personalizado"**:
 
 A conf importada passou a ter arquivo próprio (`custom-wireguard.conf`, 0600), a importação interna não reentra na fila e o logout remove só os artefatos do perfil Proton. O layout antigo (conf apontando para o perfil Proton em uso, com o marcador da conta presente) é recusado com "Selecione o arquivo .conf novamente" em vez de subir o servidor errado, e o botão **"Testar .conf"** valida a conf configurada — nunca o perfil ativo do túnel. `AllowedIPs` escrito como as duas metades (`0.0.0.0/1` + `128.0.0.0/1`, usado por alguns provedores) passou a contar como rota padrão, e o erro de rota ausente diz qual rota falta.
 
-**Verificado:** 8 testes em `golive-gui/tests/plugin-custom-config.test.ts` mais a suíte da GUI, o harness real do plugin na VM Windows (`docs/testing/2026-10-17-plugin-conf-propria-e-updater-vm.md`) e o cliente real no Linux (conf Proton importada, ativação por polkit e Discord dentro do namespace).
+**Verificado:** 8 testes em `golive-gui/tests/plugin-custom-config.test.ts` mais a suíte da GUI, o harness real do plugin na VM Windows (`docs/testing/2026-10-17-plugin-conf-propria-e-updater-vm.md`) e o cliente real no Linux (`docs/testing/2026-10-17-plugin-linux-conf-e-updater.md`): conf Proton importada, ativação por polkit, Discord dentro do namespace, handshake confirmado (`wg show`) e saída pelo IP da VPN (205.147.22.22) em vez do IP local do host.
 
 ### Plugin: updater sai do journal preso em vez de falhar para sempre
 
